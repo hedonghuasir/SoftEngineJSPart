@@ -93,6 +93,15 @@ var SoftEngine;
             });
         };
 
+        Device.prototype.computeNDotL = function (vertex, normal, lightPosition) {
+            var lightDirection = lightPosition.subtract(vertex);
+
+            normal.normalize();
+            lightDirection.normalize();
+
+            return Math.max(0, BABYLON.Vector3.Dot(normal, lightDirection));
+        };
+
         Device.prototype.processScanLine = function (data, va, vb, vc, vd, color) {
             var pa = va.Coordinates;
             var pb = vb.Coordinates;
@@ -108,23 +117,17 @@ var SoftEngine;
             var z1 = this.interpolate(pa.z, pb.z, gradient1);
             var z2 = this.interpolate(pc.z, pd.z, gradient2);
 
+            var snl = this.interpolate(data.ndotla, data.ndotlb, gradient1);
+            var enl = this.interpolate(data.ndotlc, data.ndotld, gradient2);
+
             for (var x = sx; x < ex; x++) {
                 var gradient = (x - sx) / (ex - sx);
 
                 var z = this.interpolate(z1, z2, gradient);
-                var ndotl = data.ndotla;
+                var ndotl = this.interpolate(snl, enl, gradient);
 
                 this.drawPoint(new BABYLON.Vector3(x, data.currentY, z), new BABYLON.Color4(color.r * ndotl, color.g * ndotl, color.b * ndotl, 1));
             }
-        };
-
-        Device.prototype.computeNDotL = function (vertex, normal, lightPosition) {
-            var lightDirection = lightPosition.subtract(vertex);
-
-            normal.normalize();
-            lightDirection.normalize();
-
-            return Math.max(0, BABYLON.Vector3.Dot(normal, lightDirection));
         };
 
         Device.prototype.drawTriangle = function (v1, v2, v3, color) {
@@ -150,14 +153,13 @@ var SoftEngine;
             var p2 = v2.Coordinates;
             var p3 = v3.Coordinates;
 
-            var vnFace = (v1.Normal.add(v2.Normal.add(v3.Normal))).scale(1 / 3);
-            var centerPoint = (v1.WorldCoordinates.add(v2.WorldCoordinates.add(v3.WorldCoordinates))).scale(1 / 3);
-
             var lightPos = new BABYLON.Vector3(0, 10, 10);
 
-            var ndotl = this.computeNDotL(centerPoint, vnFace, lightPos);
+            var nl1 = this.computeNDotL(v1.WorldCoordinates, v1.Normal, lightPos);
+            var nl2 = this.computeNDotL(v2.WorldCoordinates, v2.Normal, lightPos);
+            var nl3 = this.computeNDotL(v3.WorldCoordinates, v3.Normal, lightPos);
 
-            var data = { ndotla: ndotl };
+            var data = {};
 
             var dP1P2;
             var dP1P3;
@@ -175,8 +177,16 @@ var SoftEngine;
                     data.currentY = y;
 
                     if (y < p2.y) {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl2;
                         this.processScanLine(data, v1, v3, v1, v2, color);
                     } else {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl2;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v1, v3, v2, v3, color);
                     }
                 }
@@ -185,8 +195,16 @@ var SoftEngine;
                     data.currentY = y;
 
                     if (y < p2.y) {
+                        data.ndotla = nl1;
+                        data.ndotlb = nl2;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v1, v2, v1, v3, color);
                     } else {
+                        data.ndotla = nl2;
+                        data.ndotlb = nl3;
+                        data.ndotlc = nl1;
+                        data.ndotld = nl3;
                         this.processScanLine(data, v2, v3, v1, v3, color);
                     }
                 }
