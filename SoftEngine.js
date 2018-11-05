@@ -17,6 +17,18 @@ var SoftEngine;
             this.Rotation = new BABYLON.Vector3(0, 0, 0);
             this.Position = new BABYLON.Vector3(0, 0, 0);
         }
+        Mesh.prototype.computeFacesNormals = function () {
+            for (var indexFaces = 0; indexFaces < this.Faces.length; indexFaces++) {
+                var currentFace = this.Faces[indexFaces];
+
+                var vertexA = this.Vertices[currentFace.A];
+                var vertexB = this.Vertices[currentFace.B];
+                var vertexC = this.Vertices[currentFace.C];
+
+                this.Faces[indexFaces].Normal = (vertexA.Normal.add(vertexB.Normal.add(vertexC.Normal))).scale(1 / 3);
+                this.Faces[indexFaces].Normal.normalize();
+            }
+        };
         return Mesh;
     })();
     SoftEngine.Mesh = Mesh;
@@ -166,6 +178,7 @@ var SoftEngine;
 
             var su = this.interpolate(data.ua, data.ub, gradient1);
             var eu = this.interpolate(data.uc, data.ud, gradient2);
+
             var sv = this.interpolate(data.va, data.vb, gradient1);
             var ev = this.interpolate(data.vc, data.vd, gradient2);
 
@@ -174,6 +187,7 @@ var SoftEngine;
 
                 var z = this.interpolate(z1, z2, gradient);
                 var ndotl = this.interpolate(snl, enl, gradient);
+
                 var u = this.interpolate(su, eu, gradient);
                 var v = this.interpolate(sv, ev, gradient);
 
@@ -321,20 +335,26 @@ var SoftEngine;
 
                 var worldMatrix = BABYLON.Matrix.RotationYawPitchRoll(cMesh.Rotation.y, cMesh.Rotation.x, cMesh.Rotation.z).multiply(BABYLON.Matrix.Translation(cMesh.Position.x, cMesh.Position.y, cMesh.Position.z));
 
-                var transformMatrix = worldMatrix.multiply(viewMatrix).multiply(projectionMatrix);
+                var worldView = worldMatrix.multiply(viewMatrix);
+                var transformMatrix = worldView.multiply(projectionMatrix);
 
                 for (var indexFaces = 0; indexFaces < cMesh.Faces.length; indexFaces++) {
                     var currentFace = cMesh.Faces[indexFaces];
-                    var vertexA = cMesh.Vertices[currentFace.A];
-                    var vertexB = cMesh.Vertices[currentFace.B];
-                    var vertexC = cMesh.Vertices[currentFace.C];
 
-                    var pixelA = this.project(vertexA, transformMatrix, worldMatrix);
-                    var pixelB = this.project(vertexB, transformMatrix, worldMatrix);
-                    var pixelC = this.project(vertexC, transformMatrix, worldMatrix);
+                    var transformedNormal = BABYLON.Vector3.TransformNormal(currentFace.Normal, worldView);
 
-                    var color = 1.0;
-                    this.drawTriangle(pixelA, pixelB, pixelC, new BABYLON.Color4(color, color, color, 1), cMesh.Texture);
+                    if (transformedNormal.z < 0) {
+                        var vertexA = cMesh.Vertices[currentFace.A];
+                        var vertexB = cMesh.Vertices[currentFace.B];
+                        var vertexC = cMesh.Vertices[currentFace.C];
+
+                        var pixelA = this.project(vertexA, transformMatrix, worldMatrix);
+                        var pixelB = this.project(vertexB, transformMatrix, worldMatrix);
+                        var pixelC = this.project(vertexC, transformMatrix, worldMatrix);
+
+                        var color = 1.0;
+                        this.drawTriangle(pixelA, pixelB, pixelC, new BABYLON.Color4(color, color, color, 1), cMesh.Texture);
+                    }
                 }
             }
         };
@@ -435,6 +455,8 @@ var SoftEngine;
                     var meshTextureName = materials[meshTextureID].DiffuseTextureName;
                     mesh.Texture = new Texture(meshTextureName, 512, 512);
                 }
+
+                mesh.computeFacesNormals();
 
                 meshes.push(mesh);
             }
