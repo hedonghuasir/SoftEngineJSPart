@@ -1,3 +1,4 @@
+// shim layer with setTimeout fallback
 window.requestAnimationFrame = (function () {
    return window.requestAnimationFrame ||
          window.webkitRequestAnimationFrame ||
@@ -11,9 +12,7 @@ var canvas;
 var device;
 var meshes = [];
 var mera;
-
 document.addEventListener("DOMContentLoaded", init, false);
-
 function init() {
     canvas = document.getElementById("frontBuffer");
     mera = new SoftEngine.Camera();
@@ -22,28 +21,16 @@ function init() {
     mera.Target = new BABYLON.Vector3(0, 0, 0);
     device.LoadJSONFileAsync("monkey.babylon", loadJSONCompleted);
 }
-
 function loadJSONCompleted(meshesLoaded) {
     meshes = meshesLoaded;
-    // Calling the HTML5 rendering loop
     requestAnimationFrame(drawingLoop);
 }
-
-// Rendering loop handler
 function drawingLoop() {
     device.clear();
-
-    for (var i = 0; i < meshes.length; i++) {
-        // rotating slightly the mesh during each frame rendered
-        meshes[i].Rotation.x += 0.01;
+    for(var i = 0; i < meshes.length; i++) {
         meshes[i].Rotation.y += 0.01;
     }
-
-    // Doing the various matrix operations
     device.render(mera, meshes);
-    // Flushing the back buffer into the front buffer
     device.present();
-
-    // Calling the HTML5 rendering loop recursively
     requestAnimationFrame(drawingLoop);
 }
